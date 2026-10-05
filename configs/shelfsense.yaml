@@ -1,0 +1,19 @@
+# Analytics settings for `shelfsense detect --config configs/shelfsense.yaml`
+
+# Labels counted as shelf stock. Leave empty to count every non-defect label.
+product_classes: [product]
+
+# Labels that always raise an alert.
+defect_classes: [defect]
+
+# Alert when the (smoothed) count of a label falls below this number.
+low_stock:
+  product: 20
+
+# Gap detection: flag a hole wider than gap_factor x the median product width in a row.
+gap_factor: 1.6
+row_tol: 0.6
+min_row_items: 3
+
+# Rolling-median window (frames) used to stabilise counts.
+smooth_frames: 5

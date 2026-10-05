@@ -1,0 +1,14 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # Tests only cover analytics + synthetic data, so the heavy torch stack is not needed.
+      - run: pip install numpy pyyaml opencv-python-headless pytest
+      - run: pip install --no-deps -e .
+      - run: pytest -q
