@@ -95,6 +95,7 @@ Tips for shelves: label *every* visible item (missed labels teach the model that
 | `gap_factor` | a hole wider than `gap_factor` x median product width is an empty slot |
 | `row_tol` | how close (in product heights) box centres must be to share a shelf row |
 | `min_row_items` | rows with fewer products are too sparse to judge |
+| `gap_persist_frames` | a gap is reported only after it persists this many frames, so detector flicker isn't flagged |
 | `smooth_frames` | rolling-median window for counts |
 
 The analytics are plain Python (`shelfsense.ShelfAnalyzer`), so you can feed them detections from any model:

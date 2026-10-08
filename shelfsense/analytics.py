@@ -24,13 +24,17 @@ class AnalyticsConfig:
     # Alert when the smoothed count of a label drops below this number.
     low_stock: dict[str, int] = field(default_factory=dict)
     # A horizontal gap wider than gap_factor * median product width is a possible out-of-stock.
-    gap_factor: float = 1.6
+    # Below 1.0 so that a single missing product (a hole about one product wide) is caught.
+    gap_factor: float = 0.8
     # Products belong to the same shelf row if their centres are within row_tol * median height.
     row_tol: float = 0.6
     # Rows with fewer products than this are too sparse to judge gaps on.
     min_row_items: int = 3
     # Number of frames used for the rolling-median count (kills flicker).
     smooth_frames: int = 5
+    # A gap is only reported after it has been seen in this many consecutive frames,
+    # so a product the detector misses for a frame or two is not flagged as empty.
+    gap_persist_frames: int = 4
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> AnalyticsConfig:
@@ -73,6 +77,7 @@ class ShelfAnalyzer:
     def __init__(self, config: AnalyticsConfig | None = None):
         self.config = config or AnalyticsConfig()
         self._history: deque[Counter] = deque(maxlen=max(1, self.config.smooth_frames))
+        self._gap_history: deque[list[Gap]] = deque(maxlen=max(1, self.config.gap_persist_frames))
 
     def _is_defect(self, det: Detection) -> bool:
         return det.label in self.config.defect_classes
@@ -88,7 +93,8 @@ class ShelfAnalyzer:
         products = [d for d in detections if self._is_product(d)]
 
         counts = self._smoothed_counts(detections)
-        gaps = self.find_gaps(products)
+        # A damaged item still occupies its slot, so defects count as shelf occupants here.
+        gaps = self._persistent_gaps(self.find_gaps(products + defects))
 
         alerts: list[Alert] = []
         if defects:
@@ -111,6 +117,14 @@ class ShelfAnalyzer:
             label: int(statistics.median(c.get(label, 0) for c in self._history))
             for label in sorted(labels)
         }
+
+    def _persistent_gaps(self, gaps: list[Gap]) -> list[Gap]:
+        """Keep only gaps that overlap a gap in each of the previous gap_persist_frames - 1 frames."""
+        self._gap_history.append(gaps)
+        if len(self._gap_history) < self._gap_history.maxlen:
+            return []
+        past = list(self._gap_history)[:-1]
+        return [g for g in gaps if all(any(_same_gap(g, h) for h in frame) for frame in past)]
 
     def find_gaps(self, products: list[Detection]) -> list[Gap]:
         """Find horizontal holes inside shelf rows where a product is probably missing."""
@@ -148,3 +162,11 @@ class ShelfAnalyzer:
                 rows.append([p])
                 row_means.append(p.center_y)
         return rows
+
+
+def _same_gap(a: Gap, b: Gap) -> bool:
+    """Two gaps are the same hole if they overlap vertically and share half the narrower width."""
+    if min(a.y2, b.y2) <= max(a.y1, b.y1):
+        return False
+    overlap = min(a.x2, b.x2) - max(a.x1, b.x1)
+    return overlap >= 0.5 * min(a.x2 - a.x1, b.x2 - b.x1)

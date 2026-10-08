@@ -11,9 +11,11 @@ low_stock:
   product: 20
 
 # Gap detection: flag a hole wider than gap_factor x the median product width in a row.
-gap_factor: 1.6
+gap_factor: 0.8
 row_tol: 0.6
 min_row_items: 3
+# Only report a gap after it persists for this many frames (filters detector flicker).
+gap_persist_frames: 4
 
 # Rolling-median window (frames) used to stabilise counts.
 smooth_frames: 5

@@ -12,26 +12,42 @@ def row(xs, y=100, w=50, h=80, label="product"):
 
 
 def test_counts_per_label():
-    a = ShelfAnalyzer(AnalyticsConfig(smooth_frames=1))
+    a = ShelfAnalyzer(AnalyticsConfig(smooth_frames=1, gap_persist_frames=1))
     report = a.analyze(row([0, 60, 120]) + [det(0, 0, 10, 10, "defect")])
     assert report.counts == {"defect": 1, "product": 3}
 
 
 def test_defect_raises_alert():
-    a = ShelfAnalyzer(AnalyticsConfig(smooth_frames=1))
+    a = ShelfAnalyzer(AnalyticsConfig(smooth_frames=1, gap_persist_frames=1))
     report = a.analyze(row([0, 60, 120]) + [det(0, 0, 10, 10, "defect")])
     assert [x.kind for x in report.alerts] == ["defect"]
     assert len(report.defects) == 1
 
 
-def test_defects_are_not_products_for_gap_detection():
-    a = ShelfAnalyzer(AnalyticsConfig(smooth_frames=1))
-    report = a.analyze(row([0, 60]) + [det(120, 100, 170, 180, "defect")])
-    assert report.gaps == []  # only two real products: row too sparse
+def test_defective_item_still_occupies_its_slot():
+    a = ShelfAnalyzer(AnalyticsConfig(smooth_frames=1, gap_persist_frames=1))
+    report = a.analyze(row([0, 55]) + [det(110, 100, 160, 180, "defect")] + row([165, 220]))
+    assert report.gaps == []
+    assert report.counts == {"defect": 1, "product": 4}
+
+
+def test_gap_must_persist_before_it_is_reported():
+    a = ShelfAnalyzer(AnalyticsConfig(smooth_frames=1, gap_persist_frames=3))
+    holed = row([0, 55, 165, 220])
+    assert a.analyze(holed).gaps == []
+    assert a.analyze(holed).gaps == []
+    assert len(a.analyze(holed).gaps) == 1
+
+
+def test_one_frame_detector_flicker_is_not_a_gap():
+    a = ShelfAnalyzer(AnalyticsConfig(smooth_frames=1, gap_persist_frames=3))
+    full, holed = row([0, 55, 110, 165, 220]), row([0, 55, 165, 220])
+    for frame in (full, full, holed, full, full, holed, full):
+        assert a.analyze(frame).gaps == []
 
 
 def test_gap_found_between_products():
-    a = ShelfAnalyzer(AnalyticsConfig(smooth_frames=1))
+    a = ShelfAnalyzer(AnalyticsConfig(smooth_frames=1, gap_persist_frames=1))
     # products at x=0,60,120 then a hole (one missing slot) then 300
     report = a.analyze(row([0, 60, 120, 300]))
     assert len(report.gaps) == 1
@@ -40,13 +56,21 @@ def test_gap_found_between_products():
     assert any(x.kind == "gap" for x in report.alerts)
 
 
+def test_single_missing_product_is_a_gap():
+    a = ShelfAnalyzer(AnalyticsConfig(smooth_frames=1, gap_persist_frames=1))
+    # 50px products on a 55px pitch; the one at x=110 is missing -> 65px hole
+    report = a.analyze(row([0, 55, 165, 220]))
+    assert len(report.gaps) == 1
+    assert report.gaps[0].x1 == pytest.approx(105) and report.gaps[0].x2 == pytest.approx(165)
+
+
 def test_tight_row_has_no_gap():
-    a = ShelfAnalyzer(AnalyticsConfig(smooth_frames=1))
+    a = ShelfAnalyzer(AnalyticsConfig(smooth_frames=1, gap_persist_frames=1))
     assert a.analyze(row([0, 55, 110, 165, 220])).gaps == []
 
 
 def test_gaps_are_per_row():
-    a = ShelfAnalyzer(AnalyticsConfig(smooth_frames=1))
+    a = ShelfAnalyzer(AnalyticsConfig(smooth_frames=1, gap_persist_frames=1))
     top = row([0, 60, 120, 180], y=50)
     bottom = row([0, 60, 120, 300], y=250)  # gap only here
     report = a.analyze(top + bottom)
