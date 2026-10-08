@@ -24,7 +24,7 @@ ShelfSense wraps [Ultralytics YOLO](https://docs.ultralytics.com/) with everythi
 ## Install
 
 ```bash
-git clone https://github.com/<your-user>/ShelfSense.git
+git clone https://github.com/Mohammmed-Waleed/ShelfSense.git
 cd ShelfSense
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
@@ -53,6 +53,16 @@ shelfsense detect --weights models/shelfsense.pt --source 0 --config configs/she
 ```
 
 The synthetic data (coloured boxes on shelves, "defect" = cracked box) is a smoke test and demo, **not** a substitute for real data. Metrics on it say nothing about real-world accuracy.
+
+### Skip training: download the demo weights
+
+The model from step 2 is published as [release v0.1.0](https://github.com/Mohammmed-Waleed/ShelfSense/releases/tag/v0.1.0) (YOLO11n, 5.5 MB, trained on the synthetic data only):
+
+```bash
+curl -L --create-dirs -o models/shelfsense.pt https://github.com/Mohammmed-Waleed/ShelfSense/releases/download/v0.1.0/shelfsense.pt
+```
+
+SHA-256: `e07fce9af4d121ba8fb93cec5f76b655099ae8a2db3d561ac94b4e844b7b373d`. Then generate the demo video (step 1) and run step 4.
 
 ## Training on real shelf data
 
@@ -121,7 +131,7 @@ pytest
 
 - Empty-slot detection is geometric: it infers a missing item from a hole in a row of detections. It assumes roughly horizontal rows and similarly sized products, and will be less reliable on strongly angled shots or mixed-size packaging.
 - Counts reflect what the model sees; heavily occluded or stacked items will be undercounted.
-- Pretrained weights are not committed to the repo. Train your own, or attach them to a GitHub Release.
+- Weights are not committed to the repo. The [v0.1.0 release](https://github.com/Mohammmed-Waleed/ShelfSense/releases/tag/v0.1.0) has demo weights trained on synthetic data; for real shelves, fine-tune on real photos.
 
 ## License
 
